@@ -1,4 +1,41 @@
-import random
+'''
+random 함수 관련 배경 지식 정리
+
+random 함수는 의사 난수 생성기(Pseudo Random Number Generator: PRNG)를 사용
+
+PRNG란?
+    시드(seed)라고 불리는 초기값을 기반으로 어떤 알고리즘을 이용해 난수처럼 보이는 숫자열을 생성하는 프로그램
+
+PRNG의 난수 생성 과정
+    1. 시드 설정 -> 2. 내부 상태 유지 -> 3. 상태 전이 -> 4. 출력 변환
+        1. 시드 설정
+        난수를 생성하는 초기값을 설정
+        2. 내부 상태 유지
+        현재 숫자와 다음 숫자를 만들기 위한 데이터를 저장
+        3. 상태 전이
+        현재 상태를 꼬아서 다음 상태로 변환
+        4. 출력 변환
+        사용자가 원하는 형태로 가공
+'''
+import time
+
+class random:
+    def __init__(self):
+        self.seed = hash('김태영') & 0xFFFFFFFF # 1. 시드 설정(시드를 hash함수로 설정한 이유는 맨 밑 주석 참고)
+        self.generate_number()
+
+    def generate_number(self):
+        x = self.seed # 2. 내부 상태 유지
+        # 3. 상태 전이
+        x ^= (x << 13) & 0xFFFFFFFF
+        x ^= (x >> 17) & 0xFFFFFFFF
+        x ^= (x << 5) & 0xFFFFFFFF
+        self.seed = x
+        # 4. 출력 변환
+        return x / 0xFFFFFFFF
+    
+    def uniform(self, min, max):
+        return min + (max - min) * self.generate_number()
 
 class config_reader:
     def __init__(self, file_name):
@@ -130,7 +167,63 @@ class config_reader:
                 return first_token
         # 1-2 get_token함수가 실행 후, 그 반환 값을 parse 함수의 인자로 전달(토큰화 후 파싱)
         return parse(get_token())
+class JSONFormatter:
+    def print_dicdata_to_jsontype(self, data):
+        # 파이썬 객체를 JSON 문자열로 변환
+        json_string = self.json_dumper(data)
+        return json_string
 
+    def __escape_string(self, s):
+        # JSON에서 특별한 의미를 갖는 문자들을 처리
+        substitutions = {
+            '\\': '\\\\', #역슬레시
+            '"': '\\"', # 큰따움표
+            '\b': '\\b', # 백스페이스(커서를 왼쪽으로 한칸 이동)
+            '\f': '\\f', # 다음 페이지(용지) 넘김
+            '\n': '\\n', # 줄바꿈
+            '\r': '\\r', # 캐리지 리턴(커서를 맨 앞으로 이동)
+            '\t': '\\t', # 탭
+        }
+        for char, sub in substitutions.items():
+            s = s.replace(char, sub)
+        return f'"{s}"'
+
+    '''--- 데이터 직렬화(JSON 변환) 메소드 ---'''
+    def json_dumper(self, data, indent=4, level=0):
+        # 들여쓰기를 위한 공백 계산
+        space = " " * (indent * level)
+        next_space = " " * (indent * (level + 1))
+        
+        # 1. 딕셔너리 처리
+        if isinstance(data, dict):
+            if not data: return "{}"
+            items = []
+            for key, value in data.items():
+                # 키도 문자열이므로 이스케이프 처리
+                escaped_key = self.__escape_string(str(key))
+                # 값은 재귀적으로 처리 (level + 1)
+                transformed_value = self.json_dumper(value, indent, level + 1)
+                items.append(f"{next_space}{escaped_key}: {transformed_value}")
+            return "{\n" + ",\n".join(items) + "\n" + space + "}"
+        
+        # 2. 리스트 처리
+        elif isinstance(data, list):
+            if not data: return "[]"
+            items = [f"{next_space}{self.json_dumper(item, indent, level + 1)}" for item in data]
+            return "[\n" + ",\n".join(items) + "\n" + space + "]"
+        
+        # 3. 문자열 처리 (이스케이프 적용)
+        elif isinstance(data, str):
+            return self.__escape_string(data)
+        
+        # 4. 기타 기본 타입 처리
+        elif isinstance(data, bool):
+            return "true" if data else "false"
+        elif data is None:
+            return "null"
+        else:
+            # 숫자(int, float) 등은 그대로 반환
+            return str(data)
 class DummySensor:
     def __init__(self, config_data):
         self.config_data = config_data
@@ -151,13 +244,22 @@ class DummySensor:
 
     def get_env(self):
             return self.env_values
+    
+class MissionComputer:
+    def __init__(self, ds):
+        self.ds_instance = ds
+
+    def get_sensor_data():
+        ds.set_env()
+        return ds.get_env()
 
 '''
 if __name__=='__main__': 의 의미
-__name__은 현재 실행 중인 파일을 담는 특수 변수
-만약 이 파일이 실행된다면, 이 파일은 __main__으로 지정된다.
+    __name__은 현재 실행 중인 파일을 담는 특수 변수
+    만약 이 파일이 실행된다면, 이 파일은 __main__으로 지정된다.
 '''
 if __name__=='__main__':
+    random = random()
     # 설정 파일
     config_file_name = 'config.json'
     # 설정 파일 읽기 전용 class의 인스턴스 생성
@@ -166,5 +268,46 @@ if __name__=='__main__':
     config_data = config_reader.open_file()
     # 인스턴스 생성
     ds = DummySensor(config_data)
-    ds.set_env()
-    ds.get_env()
+    # print(ds.env_values)
+    # print(ds.get_env())
+
+    RunComputer = MissionComputer(ds)
+    json_formatter = JSONFormatter()
+    try:
+        while True:
+            sensor_data = MissionComputer.get_sensor_data()
+            print(json_formatter.print_dicdata_to_jsontype(sensor_data))
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print("Sytem stoped….")
+
+    
+
+    ## random 클래스 테스트 코드
+    # random = random()
+    # print(f'value of hash : {random.seed}')
+    # print(f'random value : {random.generate_number()}')
+    # print(f'random value : {random.uniform(10, 20)}')
+
+'''
+hash 함수 배경 지식 정리
+hash 함수란, 어떤 데이터를 고정된 길이의 고유한 값으로 변환하는 알고리즘
+해시값(hash value)는 hash 함수로 hashing 되어 나온 고유한 값
+
+활용 사례
+1. 자료구조 (Hash Table): 데이터 검색 및 저장 시, 키(Key)를 해시 함수를 통해 인덱스로 변환하여 O(1)에 근접한 속도로 데이터를 관리
+2. 암호 및 보안: 비밀번호 저장, 전자 서명 등에서 원본 내용을 숨기기 위해 사용
+3. 무결성 검사 (Checksum): 데이터가 전송 중 변조되지 않았는지 확인할 때 원본 파일의 해시값과 수신된 파일의 해시값을 비교
+
+문제점
+1. 해시 충돌(Hash Collision)
+    생성할 수 있는 해시의 값은 한계가 있기에 다른 값을 해싱해도 같은 값이 나오는 경우가 있음
+    해시 플러딩(Hash Flooding)
+        해시 함수의 알고리즘을 파악해 해시 충돌을 일으키는 더미 데이터를 서버에 던지는 공격(일종의 DoS)
+    해시 플러딩을 막기 위해 python에서는 hash 함수 실행 시 내부적으로 무작위 시드값을 해시 계산에 섞어 넣음
+2. 데어터 순서 파괴(No Range Search)
+    빠른 검색을 위해 마구잡이로 저장을 하기 때문에 sort나 범위 검색이 불가능
+3. 리해싱(Rehashing)의 부담
+    배열이 꽉 차서 큰 배열로 변경 할 경우 해싱 한 데이터를 다시 해싱해서 옮겨야 함    
+ '''
+

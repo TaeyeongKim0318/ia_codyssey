@@ -1,0 +1,18 @@
+{
+  "name": [
+    "mars_base_internal_temperature",
+    "mars_base_external_temperature",
+    "mars_base_internal_humidity",
+    "mars_base_external_illuminance",
+    "mars_base_internal_co2",
+    "mars_base_internal_oxygen"
+  ],
+  "data_ranges": {
+    "mars_base_internal_temperature": [18.0, 30.0],
+    "mars_base_external_temperature": [0.0, 21.0],
+    "mars_base_internal_humidity": [50.0, 60.0],
+    "mars_base_external_illuminance": [500.0, 715.0],
+    "mars_base_internal_co2": [0.02, 0.1],
+    "mars_base_internal_oxygen": [4.0, 7.0]
+  }
+}
