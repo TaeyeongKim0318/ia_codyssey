@@ -59,7 +59,7 @@ def screan_the_5s_interval_data_and_average_of_5min(ds, config_data):
 def calculate_average_5min(json_formatter, config_data):
     global collect_sensor_data, count_num
     while True:
-        if(count_num == 5):
+        if(count_num == 60):
             with lock:
                 for name_of_sensor_data in config_data['name']:
                     collect_sensor_data[name_of_sensor_data] = round(collect_sensor_data[name_of_sensor_data] / count_num, 3)
