@@ -23,7 +23,7 @@ import threading
 lock = threading.Lock()
 #########################################################################
 
-def main(ds, config_data):
+def screan_the_5s_interval_data_and_average_of_5min(ds, config_data):
     # MissionComputer 인스턴스 생성 후 ds 인스턴스를 인자로 설정
     RunComputer = MissionComputer(ds, config_data)
     # dict 데이터를 json 형식으로 변경하여 return 하는 JSONFormatter 인스턴스 생성
@@ -56,6 +56,32 @@ def main(ds, config_data):
         thread_of_calculate_average.join()
         print('Sytem stoped….')
 
+def calculate_average_5min(json_formatter, config_data):
+    global collect_sensor_data, count_num
+    while True:
+        if(count_num == 5):
+            with lock:
+                for name_of_sensor_data in config_data['name']:
+                    collect_sensor_data[name_of_sensor_data] = round(collect_sensor_data[name_of_sensor_data] / count_num, 3)
+                time.sleep(1)
+                print(f'{count_num*5/60}분간 수집된 데이터들의 평균값:')
+                print(f'{json_formatter.print_dicdata_to_jsontype(collect_sensor_data)}\n')
+                for name_of_sensor_data in config_data['name']:
+                    collect_sensor_data[name_of_sensor_data] = 0
+                count_num = 0
+
+def screen_data_by_5s_interval(json_formatter, RunComputer, config_data):
+    global collect_sensor_data, count_num
+    while True:
+        sensor_data = RunComputer.get_sensor_data()
+        for name_of_sensor_data in config_data['name']:
+
+            collect_sensor_data[name_of_sensor_data] += sensor_data[name_of_sensor_data]
+        count_num += 1
+        print(f'{count_num*5}초에 측정된 데이터들의 값:')
+        print(f'{json_formatter.print_dicdata_to_jsontype(sensor_data)}\n')
+        time.sleep(5)
+        
 
 
 class random:
@@ -275,7 +301,7 @@ class DummySensor:
 
     def get_env(self):
             return self.env_values        
-class MissionComputer(threading.Thread):
+class MissionComputer():
     def __init__(self, ds,config_data):
         self.ds_instance = ds
         self.config_data = config_data
@@ -283,34 +309,6 @@ class MissionComputer(threading.Thread):
     def get_sensor_data(self):
         ds.set_env()
         return ds.get_env()
-
-def calculate_average_5min(json_formatter, config_data):
-    global collect_sensor_data, count_num
-    while True:
-        if(count_num == 5):
-            with lock:
-                for name_of_sensor_data in config_data['name']:
-                    collect_sensor_data[name_of_sensor_data] = round(collect_sensor_data[name_of_sensor_data] / count_num, 3)
-                time.sleep(1)
-                print(f'{count_num*5/60}분간 수집된 데이터들의 평균값:')
-                print(f'{json_formatter.print_dicdata_to_jsontype(collect_sensor_data)}\n')
-                for name_of_sensor_data in config_data['name']:
-                    collect_sensor_data[name_of_sensor_data] = 0
-                count_num = 0
-
-
-def screen_data_by_5s_interval(json_formatter, RunComputer, config_data):
-    global collect_sensor_data, count_num
-    while True:
-        sensor_data = RunComputer.get_sensor_data()
-        for name_of_sensor_data in config_data['name']:
-
-            collect_sensor_data[name_of_sensor_data] += sensor_data[name_of_sensor_data]
-        count_num += 1
-        print(f'{count_num*5}초에 측정된 데이터들의 값:')
-        print(f'{json_formatter.print_dicdata_to_jsontype(sensor_data)}\n')
-        time.sleep(5)
-        
 
 
 
@@ -334,9 +332,7 @@ if __name__=='__main__':
     # print(ds.env_values)
     # print(ds.get_env())
 
-    main(ds, config_data)
-
-    
+    screan_the_5s_interval_data_and_average_of_5min(ds, config_data)
 
     ## random 클래스 테스트 코드
     # random = random()
