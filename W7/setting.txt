@@ -1,0 +1,10 @@
+[SYSTEM_INFO]
+os_type=True
+os_version=True
+cpu_arch=True
+cpu_cores=True
+memory_size=True
+
+[REALTIME_LOAD]
+cpu_usage=True
+mem_usage=True
