@@ -18,6 +18,45 @@ PRNG의 난수 생성 과정
         사용자가 원하는 형태로 가공
 '''
 import time
+import threading
+#########################################################################
+lock = threading.Lock()
+#########################################################################
+
+def main(ds, config_data):
+    # MissionComputer 인스턴스 생성 후 ds 인스턴스를 인자로 설정
+    RunComputer = MissionComputer(ds, config_data)
+    # dict 데이터를 json 형식으로 변경하여 return 하는 JSONFormatter 인스턴스 생성
+    json_formatter = JSONFormatter()
+
+    # 변수 초기화
+    global collect_sensor_data, count_num
+    collect_sensor_data = {}    # 데이터 합산용 딕셔너리
+    count_num = 0               # 5분 측정용 변수
+    # 합산용 딕셔너리 0으로 초기화
+    for name_of_sensor_data in config_data['name']:
+        collect_sensor_data[name_of_sensor_data] = 0
+    # 쓰래딩으로 병렬처리
+    try:
+        thread_of_screen_data = threading.Thread(
+            target=screen_data_by_5s_interval,              # 쓰레딩할 함수 설정
+            args=(json_formatter, RunComputer, config_data) # 함수에 전할 인자 설정
+            )
+        thread_of_calculate_average = threading.Thread(
+            target=calculate_average_5min,
+            args=(json_formatter, config_data)
+            )
+        # 쓰래딩 실행
+        thread_of_screen_data.start()
+        thread_of_calculate_average.start()
+
+    # 인터럽트 발생 시 쓰레드 종료
+    except KeyboardInterrupt:
+        thread_of_screen_data.join()
+        thread_of_calculate_average.join()
+        print('Sytem stoped….')
+
+
 
 class random:
     def __init__(self):
@@ -36,7 +75,6 @@ class random:
     
     def uniform(self, min, max):
         return min + (max - min) * self.generate_number()
-
 class config_reader:
     def __init__(self, file_name):
         # attribute로 config 파일명 설정
@@ -227,13 +265,6 @@ class JSONFormatter:
 class DummySensor:
     def __init__(self, config_data):
         self.config_data = config_data
-        self.internal_temperature = self.config_data['name'][0]
-        self.external_temperature = self.config_data['name'][1]
-        self.internal_humidity = self.config_data['name'][2]
-        self.external_illuminance = self.config_data['name'][3]
-        self.internal_co2 = self.config_data['name'][4]
-        self.internal_oxygen = self.config_data['name'][5]
-
         self.env_values = {}
         self.set_env()
 
@@ -243,15 +274,45 @@ class DummySensor:
             self.env_values[name_of_key] = round(random.uniform(range_min, range_max), 3)
 
     def get_env(self):
-            return self.env_values
-    
-class MissionComputer:
-    def __init__(self, ds):
+            return self.env_values        
+class MissionComputer(threading.Thread):
+    def __init__(self, ds,config_data):
         self.ds_instance = ds
+        self.config_data = config_data
 
-    def get_sensor_data():
+    def get_sensor_data(self):
         ds.set_env()
         return ds.get_env()
+
+def calculate_average_5min(json_formatter, config_data):
+    global collect_sensor_data, count_num
+    while True:
+        if(count_num == 5):
+            with lock:
+                for name_of_sensor_data in config_data['name']:
+                    collect_sensor_data[name_of_sensor_data] = round(collect_sensor_data[name_of_sensor_data] / count_num, 3)
+                time.sleep(1)
+                print(f'{count_num*5/60}분간 수집된 데이터들의 평균값:')
+                print(f'{json_formatter.print_dicdata_to_jsontype(collect_sensor_data)}\n')
+                for name_of_sensor_data in config_data['name']:
+                    collect_sensor_data[name_of_sensor_data] = 0
+                count_num = 0
+
+
+def screen_data_by_5s_interval(json_formatter, RunComputer, config_data):
+    global collect_sensor_data, count_num
+    while True:
+        sensor_data = RunComputer.get_sensor_data()
+        for name_of_sensor_data in config_data['name']:
+
+            collect_sensor_data[name_of_sensor_data] += sensor_data[name_of_sensor_data]
+        count_num += 1
+        print(f'{count_num*5}초에 측정된 데이터들의 값:')
+        print(f'{json_formatter.print_dicdata_to_jsontype(sensor_data)}\n')
+        time.sleep(5)
+        
+
+
 
 '''
 if __name__=='__main__': 의 의미
@@ -259,8 +320,9 @@ if __name__=='__main__': 의 의미
     만약 이 파일이 실행된다면, 이 파일은 __main__으로 지정된다.
 '''
 if __name__=='__main__':
+    # 랜덤 클래스 인스턴스 생성
     random = random()
-    # 설정 파일
+    # 설정 파일 이름 저장
     config_file_name = 'config.json'
     # 설정 파일 읽기 전용 class의 인스턴스 생성
     config_reader = config_reader(config_file_name)
@@ -268,18 +330,11 @@ if __name__=='__main__':
     config_data = config_reader.open_file()
     # 인스턴스 생성
     ds = DummySensor(config_data)
+    ## 메소드 테스트 코드
     # print(ds.env_values)
     # print(ds.get_env())
 
-    RunComputer = MissionComputer(ds)
-    json_formatter = JSONFormatter()
-    try:
-        while True:
-            sensor_data = MissionComputer.get_sensor_data()
-            print(json_formatter.print_dicdata_to_jsontype(sensor_data))
-            time.sleep(5)
-    except KeyboardInterrupt:
-        print("Sytem stoped….")
+    main(ds, config_data)
 
     
 
