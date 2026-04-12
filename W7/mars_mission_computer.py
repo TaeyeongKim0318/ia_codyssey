@@ -28,6 +28,7 @@ import ctypes
 lock = threading.Lock()
 #########################################################################
 
+''' calculate_average_5min(), screen_data_by_5s_interval() 을 쓰레딩 하는 함수 '''
 def screan_the_5s_interval_data_and_average_of_5min(json_formatter, RunComputer, config_data):
     # 변수 초기화
     global collect_sensor_data, count_num
@@ -56,28 +57,42 @@ def screan_the_5s_interval_data_and_average_of_5min(json_formatter, RunComputer,
         thread_of_calculate_average.join()
         print('Sytem stoped….')
 
+''' 5분간 데이터를 수집하여 평균을 json형태로 출력하는 함수 '''
 def calculate_average_5min(json_formatter, config_data):
+    # collect_sensor_data(5분간 수집된 데이터의 합산), count_num(데이터가 수집된 횟수)를 저장
+    # global을 선언함으로써, thread의 lock에 대해 이해하고 실습함
     global collect_sensor_data, count_num
     while True:
-        if(count_num == 5):
+        # 데이터가 수집된 횟수가 60번, 즉, 5분동안 수집했다면 평균 도출
+        if(count_num == 60):
+            # lock을 함으로써, 다른 쓰레드에서 global 변수에 접근하지 못하도록 막음
             with lock:
+                # 각 데이터 항목의 평균 도출
                 for name_of_sensor_data in config_data['name']:
                     collect_sensor_data[name_of_sensor_data] = round(collect_sensor_data[name_of_sensor_data] / count_num, 3)
+                # 다른 출력과 겹치지 않도록 1초 대기
                 time.sleep(1)
+                # 평균값 출력
                 print(f'{count_num*5/60}분간 수집된 데이터들의 평균값:')
                 print(f'{json_formatter.print_dicdata_to_jsontype(collect_sensor_data)}\n')
+                # 데이터의 합산 0으로 초기화
                 for name_of_sensor_data in config_data['name']:
                     collect_sensor_data[name_of_sensor_data] = 0
+                # 데이터 수집 횟수 0으로 초기화
                 count_num = 0
 
+''' 5초에 한번 데이터를 출력하는 함수  '''
 def screen_data_by_5s_interval(json_formatter, RunComputer, config_data):
     global collect_sensor_data, count_num
     while True:
+        # 센서의 데이터를 저장
         sensor_data = RunComputer.get_sensor_data()
+        # 데이터를 collect_sensor_data에 합산
         for name_of_sensor_data in config_data['name']:
-
             collect_sensor_data[name_of_sensor_data] += sensor_data[name_of_sensor_data]
+        # 데이터 수집 횟수 +1
         count_num += 1
+        # 수집된 데이터 json형식으로 출력
         print(f'{count_num*5}초에 측정된 데이터들의 값:')
         print(f'{json_formatter.print_dicdata_to_jsontype(sensor_data)}\n')
         time.sleep(5)
@@ -119,16 +134,19 @@ class file_reader:
     def open_file(self, file_name):
         file_path = self.__find_file_path(file_name)
         with open(file_path, 'r', encoding='utf-8') as file:
-            # 1-1. 설정 파일을 호출하여 json_loader 메소드에 인자로 넘기기
+            # 1-1-1. 파일 형식자가 포함된 파일명이라면 파일 타입 추출
             if '.' in file_name:
                 file_type = file_name.strip().split('.')[1]
             else:
                 print("파일명을 확장자를 포함하여 설정해주세요.")
                 return None
+            # 1-1-2. 설정 파일을 호출하여 json_loader 메소드에 인자로 넘기기
             if file_type == "json":
                 return self.json_loader(file)
+            # 1-1-2. 설정 파일을 호출하여 txt_loader 메소드에 인자로 넘기기
             elif file_type == "txt":
                 return self.txt_loader(file)
+            # 1-1-3. .txt, .json 이 아니라면 None 반환 후 종료
             else:
                 return None
 
@@ -328,29 +346,32 @@ class MissionComputer():
         ds.set_env()
         return ds.get_env()
     
-    def get_total_memory(self):
+    ''' 메모리 사이즈 가져오기'''
+    # 해킹 당했을 경우, 굉장히 취약한 코드이기 때문에 주의
+    def __get_total_memory(self):
         try:
+            # os가 window라면 powershell을 이용해서 데이터 가져오기
             if self.os_type == "Windows":
                 command = 'powershell "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"'
                 output = subprocess.check_output(command, shell=True).decode('utf-8').strip()
                 if output:
                     return round(int(output) / (1024**3), 2)
+            # os가 linux일 경우, meminfo파일에서 데이터 가져오기
             elif self.os_type == "Linux":
-                with open('/proc/meminfo', 'r') as f:
-                    for line in f:
+                with open('/proc/meminfo', 'r') as file:
+                    for line in file:
                         if "MemTotal" in line:
                             total_kb = int(line.split()[1])
                             return round(total_kb / (1024**2), 2)
-
+            # os가 mac일 경우, shell 스크립트를 이용해 데이터 가져오기
             elif self.os_type == "Darwin":
                 command = "sysctl -n hw.memsize"
                 total_bytes = int(subprocess.check_output(command, shell=True).decode().strip())
                 return round(total_bytes / (1024**3), 2)
-
         except Exception as e:
             return f"정보를 가져오는데 실패했습니다: {e}"
         
-    
+    # 컴퓨터 정보 가져오기
     def get_mission_computer_info(self, json_formatter, setting_of_choose_computer_info, computer_info_name):
         computer_info = {}
         for key, value in setting_of_choose_computer_info.items():
@@ -364,31 +385,50 @@ class MissionComputer():
                 elif key == computer_info_name[3]:
                     computer_info[key] = os.cpu_count()
                 elif key == computer_info_name[4]:
-                    memory_size = self.get_total_memory()
+                    memory_size = self.__get_total_memory()
                     computer_info[key] = memory_size
         print(json_formatter.print_dicdata_to_jsontype(computer_info))
 
     def get_windows_memory(self):
-        class MEMORYSTATUSEX(ctypes.Structure):
-            _fields_ = [
-                ("dwLength", ctypes.c_uint),
-                ("dwMemoryLoad", ctypes.c_uint),
-                ("ullTotalPhys", ctypes.c_ulonglong),
-                ("ullAvailPhys", ctypes.c_ulonglong),
-                ("ullTotalPageFile", ctypes.c_ulonglong),
-                ("ullAvailPageFile", ctypes.c_ulonglong),
-                ("ullTotalVirtual", ctypes.c_ulonglong),
-                ("ullAvailVirtual", ctypes.c_ulonglong),
-                ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
-            ]
-        stat = MEMORYSTATUSEX()
-        stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
-        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
-        return stat.dwMemoryLoad
+            # 1. Windows API에서 메모리 상태 정보를 담기 위해 정의된 MEMORYSTATUSEX 구조체를 파이썬으로 선언합니다.
+            # ctypes.Structure를 상속받으면 C 언어의 구조체 형식을 파이썬에서 그대로 재현할 수 있습니다.
+            class MEMORYSTATUSEX(ctypes.Structure):
+                # _fields_ 리스트는 구조체의 구성 요소(이름, 데이터 타입)를 정의합니다.
+                _fields_ = [
+                    ("dwLength", ctypes.c_uint),                # 구조체 자체의 크기 (버전 확인용)
+                    ("dwMemoryLoad", ctypes.c_uint),            # 현재 사용 중인 메모리의 백분율 (0~100)
+                    ("ullTotalPhys", ctypes.c_ulonglong),       # 총 물리 메모리 (바이트 단위)
+                    ("ullAvailPhys", ctypes.c_ulonglong),       # 현재 사용 가능한 물리 메모리
+                    ("ullTotalPageFile", ctypes.c_ulonglong),   # 총 페이지 파일 크기 (가상 메모리 확장분)
+                    ("ullAvailPageFile", ctypes.c_ulonglong),   # 사용 가능한 페이지 파일 크기
+                    ("ullTotalVirtual", ctypes.c_ulonglong),    # 총 가상 메모리 크기
+                    ("ullAvailVirtual", ctypes.c_ulonglong),    # 사용 가능한 가상 메모리 크기
+                    ("sullAvailExtendedVirtual", ctypes.c_ulonglong), # 시스템에서 예약된 영역 (항상 0)
+                ]
+
+            # 2. 위에서 정의한 구조체의 인스턴스(객체)를 메모리에 생성
+            stat = MEMORYSTATUSEX()
+
+            # 3. Windows API 함수를 호출하기 전에 dwLength 필드에 구조체의 크기를 미리 알려줘야 함
+            # 이는 운영체제가 전달받은 데이터 형식이 올바른지 확인하는 일종의 '보안 장치'
+            stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            ## 테스트 코드
+            # print(f'ctypes.sizeof(MEMORYSTATUSEX)의 정보\n{ctypes.sizeof(MEMORYSTATUSEX)}')
+            # print(f'stat._fields_의 정보\n{stat._fields_[0]}')
+
+            # 4. Windows 시스템 라이브러리인 kernel32.dll 내의 GlobalMemoryStatusEx 함수를 호출
+            # ctypes.byref(stat)은 stat 객체의 '메모리 주소'를 전달하여, 함수가 그곳에 직접 정보를 채우도록 함
+            print(f'ctypes.byref(stat)의 정보\n{ctypes.byref(stat)}')
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+
+            # 5. 모든 정보 중 '현재 메모리 사용률(dwMemoryLoad)'만 골라서 반환
+            # 예를 들어 메모리가 60% 사용 중이라면 숫자 60이 반환
+            return stat.dwMemoryLoad
 
     def get_mission_computer_load(self, json_formatter, setting_of_choose_computer_info, computer_realtime_info_name):
         realtime_computer_info = {}
         try:
+            # 윈도우일 경우 쉘 스크립트를 이용해서 실시간 cpu 사용량 가져오기
             if self.os_type == "Windows":
                 for key, value in setting_of_choose_computer_info.items():
                     if value:
@@ -401,7 +441,6 @@ class MissionComputer():
                                 realtime_computer_info[key] = round(float(val), 2)
                         elif key == computer_realtime_info_name[1]:
                             realtime_computer_info[key] = self.get_windows_memory()
-
             elif self.os_type == "Linux":
                 for key, value in setting_of_choose_computer_info.items():
                     if value:
@@ -409,7 +448,6 @@ class MissionComputer():
                             cmd_cpu = r"vmstat 1 2 | tail -n 1 | awk '{print 100 - $15}'"
                             realtime_computer_info[key] = float(subprocess.check_output(cmd_cpu, shell=True).decode().strip())
                         elif key == computer_realtime_info_name[1]:
-                            # 2. 메모리 사용량: free 명령어의 결과를 비율로 계산
                             cmd_mem = r"free | grep Mem | awk '{print $3/$2 * 100.0}'"
                             realtime_computer_info[key] = float(subprocess.check_output(cmd_mem, shell=True).decode().strip())
 
@@ -417,12 +455,9 @@ class MissionComputer():
                 for key, value in setting_of_choose_computer_info.items():
                     if value:
                         if key == computer_realtime_info_name[0]:
-                            # 1. CPU 사용량: 로드 애버리지를 활용하거나 ps의 cpu 합계를 이용
-                            # 시스템 전체 프로세스의 CPU 점유율 합산 (가장 범용적임)
                             cmd_cpu = r"ps -A -o %cpu | awk '{s+=$1} END {print s}'"
                             realtime_computer_info[key] = float(subprocess.check_output(cmd_cpu, shell=True).decode().strip())
                         elif key == computer_realtime_info_name[1]:
-                            # 2. 메모리 사용량: 전체 프로세스의 메모리 점유율 합산
                             cmd_mem = r"ps -A -o %mem | awk '{s+=$1} END {print s}'"
                             realtime_computer_info[key] = float(subprocess.check_output(cmd_mem, shell=True).decode().strip())
         except Exception:
@@ -462,7 +497,7 @@ if __name__=='__main__':
     setting_of_choose_computer_info = file_reader.open_file(setting_file_name)
     computer_info_name = ['os_type', 'os_version', 'cpu_arch', 'cpu_cores', 'memory_size']
     computer_realtime_info_name = ['cpu_usage', 'mem_usage']
-    RunComputer.get_mission_computer_info(json_formatter, setting_of_choose_computer_info, computer_info_name)
+    # RunComputer.get_mission_computer_info(json_formatter, setting_of_choose_computer_info, computer_info_name)
     RunComputer.get_mission_computer_load(json_formatter, setting_of_choose_computer_info, computer_realtime_info_name)
 
     ## random 클래스 테스트 코드
