@@ -118,7 +118,8 @@ class random:
     
 class file_reader:
     '''--- 절대값 경로 반환 메소드 ---'''
-    def __find_file_path(self, file_name):
+    @staticmethod
+    def __find_file_path(file_name):
         # 1. __file__ 을 통해, __main__의 경로 받아오고, rfind를 통해 뒤에서부터 \가 몇 번째에 있는지 반환
         last_slash_index = __file__.rfind('\\')
         # 2. 윈도우 환경이 아닐 경우, /을 찾아 반환
@@ -131,8 +132,9 @@ class file_reader:
     
     '''--- 설정 데이터 추출 메소드 ---'''
     # [1 단계] 설정 파일 호출
-    def open_file(self, file_name):
-        file_path = self.__find_file_path(file_name)
+    @staticmethod
+    def open_file(file_name):
+        file_path = file_reader.__find_file_path(file_name)
         with open(file_path, 'r', encoding='utf-8') as file:
             # 1-1-1. 파일 형식자가 포함된 파일명이라면 파일 타입 추출
             if '.' in file_name:
@@ -142,15 +144,16 @@ class file_reader:
                 return None
             # 1-1-2. 설정 파일을 호출하여 json_loader 메소드에 인자로 넘기기
             if file_type == "json":
-                return self.json_loader(file)
+                return file_reader.json_loader(file)
             # 1-1-2. 설정 파일을 호출하여 txt_loader 메소드에 인자로 넘기기
             elif file_type == "txt":
-                return self.txt_loader(file)
+                return file_reader.txt_loader(file)
             # 1-1-3. .txt, .json 이 아니라면 None 반환 후 종료
             else:
                 return None
 
-    def json_loader(self, file_obj):
+    @staticmethod
+    def json_loader(file_obj):
         # [2 단계] 글자 공급기
         def get_chars():
             while True:
@@ -254,7 +257,8 @@ class file_reader:
         # 1-2 get_token함수가 실행 후, 그 반환 값을 parse 함수의 인자로 전달(토큰화 후 파싱)
         return parse(get_token())
 
-    def txt_loader(self, file_obj):
+    @staticmethod
+    def txt_loader(file_obj):
         settings = {}
         for line in file_obj:
             if not line or line.startswith('#') or line.startswith('['):# startswith를 이용해서, 주석이나 섹션 구분자 처리
@@ -477,9 +481,6 @@ if __name__=='__main__':
     # 설정 파일 이름 저장
     config_file_name = 'config.json'
     setting_file_name = 'setting.txt'
-
-    # 설정 파일 읽기 전용 class의 인스턴스 생성
-    file_reader = file_reader()
 
     # 설정 파일 내부 데이터 읽기
     config_data = file_reader.open_file(config_file_name)
