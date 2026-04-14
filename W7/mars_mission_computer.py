@@ -257,7 +257,7 @@ class file_reader:
     def txt_loader(self, file_obj):
         settings = {}
         for line in file_obj:
-            if not line or line.startswith('#'):# startswith를 이용해 #으로 처리된 주석은 넘어감
+            if not line or line.startswith('#') or line.startswith('['):# startswith를 이용해서, 주석이나 섹션 구분자 처리
                 continue
             if '=' in line:
                 key, value = line.strip().split('=')
@@ -450,7 +450,6 @@ class MissionComputer():
                         elif key == computer_realtime_info_name[1]:
                             cmd_mem = r"free | grep Mem | awk '{print $3/$2 * 100.0}'"
                             realtime_computer_info[key] = float(subprocess.check_output(cmd_mem, shell=True).decode().strip())
-
             elif self.os_type == "Darwin":
                 for key, value in setting_of_choose_computer_info.items():
                     if value:
@@ -497,7 +496,7 @@ if __name__=='__main__':
     setting_of_choose_computer_info = file_reader.open_file(setting_file_name)
     computer_info_name = ['os_type', 'os_version', 'cpu_arch', 'cpu_cores', 'memory_size']
     computer_realtime_info_name = ['cpu_usage', 'mem_usage']
-    # RunComputer.get_mission_computer_info(json_formatter, setting_of_choose_computer_info, computer_info_name)
+    RunComputer.get_mission_computer_info(json_formatter, setting_of_choose_computer_info, computer_info_name)
     RunComputer.get_mission_computer_load(json_formatter, setting_of_choose_computer_info, computer_realtime_info_name)
 
     ## random 클래스 테스트 코드
