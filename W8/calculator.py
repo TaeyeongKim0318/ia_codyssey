@@ -35,9 +35,6 @@ iPhone 스타일 계산기 (PyQt6)
  - Backspace 키: 출력창 숫자의 마지막 글자 하나만 삭제 (수식창은 유지)
  - AC 버튼 / Esc / Delete 키: 전체 초기화 (AC 와 동일)
 
-[실행]
-    pip install PyQt6
-    python calculator.py
 """
 
 import sys
@@ -51,18 +48,18 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QFontMetrics, QKeyEvent
 
-
-# Decimal 모듈 정밀도 설정 -----------------------------------------------------
-# Python float 를 그대로 쓰면 0.1 + 0.2 == 0.30000000000000004 같은 오차가 생긴다.
-# Decimal 을 쓰면 십진수 기반으로 계산되어 일상적인 계산에서 오차가 사라진다.
-# prec 은 '유효 자릿수' 로, 30 정도면 보통 계산에 차고 넘친다.
+'''
+getcontext().prec = 30에 대해(Decimal 모듈 정밀도 설정)
+Python float 를 그대로 쓰면 0.1 + 0.2 == 0.30000000000000004 같은 오차가 생긴다.
+Decimal 을 쓰면 십진수 기반으로 계산되어 일상적인 계산에서 오차가 사라진다.
+prec 은 '유효 자릿수' 로, 30 정도면 보통 계산에 차고 넘친다.
+'''
 getcontext().prec = 30
 
-
 class Calculator(QMainWindow):
-    # ------------------------------------------------------------------
-    # 상수 정의
-    # ------------------------------------------------------------------
+    '''
+    상수 정의(숫자 최대 자릿수, 출력창 폭, 폰트 크기 후보, 버튼 스타일)
+    '''
     MAX_DIGITS = 16  # 한 숫자에 넣을 수 있는 최대 유효 자릿수 (오버플로 방지)
 
     # 메인 출력창이 실제로 글자를 그릴 수 있는 폭 (픽셀).
@@ -74,7 +71,7 @@ class Calculator(QMainWindow):
     DISPLAY_FONT_CANDIDATES = [64, 56, 48, 42, 36, 32, 28, 24, 20, 18]
 
     # 버튼 스타일 — 세 종류: 회색(기능), 어두운 회색(숫자), 주황(연산)
-    # A/C, +/-, % 같은 기능 버튼
+    # 1. A/C, +/-, % 같은 기능 버튼
     STYLE_GRAY = """
         QPushButton {
             background-color: #a5a5a5; color: black; border: none;
@@ -82,7 +79,7 @@ class Calculator(QMainWindow):
         }
         QPushButton:pressed { background-color: #d4d4d4; }
     """
-    # 숫자 버튼
+    # 2. 숫자 버튼
     STYLE_DARK = """
         QPushButton {
             background-color: #333333; color: white; border: none;
@@ -90,7 +87,7 @@ class Calculator(QMainWindow):
         }
         QPushButton:pressed { background-color: #737373; }
     """
-    # 연산자 버튼
+    # 3. 연산자 버튼
     STYLE_ORANGE = """
         QPushButton {
             background-color: #ff9500; color: white; border: none;
@@ -98,7 +95,7 @@ class Calculator(QMainWindow):
         }
         QPushButton:pressed { background-color: #ffbd66; }
     """
-    # '0' 버튼
+    # 4. '0' 버튼
     STYLE_ZERO = """
         QPushButton {
             background-color: #333333; color: white; border: none;
@@ -108,46 +105,34 @@ class Calculator(QMainWindow):
         QPushButton:pressed { background-color: #737373; }
     """
 
-    # ==================================================================
-    # 초기화
-    # ==================================================================
+    ''' 
+    생성자: 창 제목, 크기, 배경색 설정, 상태 변수 초기화, UI 구성 및 초기 화면 갱신
+    '''
     def __init__(self):
         super().__init__()
+        # 창 제목, 크기, 배경색 설정
         self.setWindowTitle("계산기")
-        self.setFixedSize(360, 640)                         # 아이폰과 비슷한 비율
+        self.setFixedSize(360, 640) 
         self.setStyleSheet("background-color: #000000;")    # 전체 배경은 검정
 
-        # 내부 상태 초기화
-        """
-        [상태 변수 설명]
-
-        self.current_input    : 현재 출력창(아래쪽 큰 글자)에 입력 중인 숫자 문자열
-                                예) "123", "1.5", "(-7)", "-0.05"
-        self.expression       : 수식창(위쪽 작은 글자)의 수식 문자열
-                                예) "5+", "5+3*", "(-7)+"
-        self.last_was_operator: 방금 누른 입력이 연산자였는지
-                                (연산자 연속 입력 처리)
-        self.last_was_equals  : 방금 '=' 를 눌러 결과가 표시된 상태인지
-                                (= 직후 숫자 입력 시 새 계산 시작 처리)
-        self.has_decimal      : 현재 입력 숫자에 '.' 이 이미 들어있는지
-                                (소수점 중복 입력 방지)
-        self.error_state      : "5/0=" 처럼 잘못된 연산으로 에러 상태인지
-                                (에러 후 다음 입력 시 자동 초기화)
-        """
-
+        # 현재 출력창(아래쪽 큰 글자)에 입력 중인 숫자 문자열
         self.current_input = ""
+        # 수식창(위쪽 작은 글자)의 수식 문자열
         self.expression = ""
+        # 방금 누른 입력이 연산자였는지
         self.last_was_operator = False
+        # 방금 '=' 를 눌러 결과가 표시된 상태인지
         self.last_was_equals = False
+        # 현재 입력 숫자에 '.' 이 이미 들어있는지
         self.has_decimal = False
+        # "5/0=" 처럼 잘못된 연산으로 에러 상태인지 (에러 후 다음 입력 시 자동 초기화)
         self.error_state = False
 
         self._build_ui()     # 화면 구성
         self._refresh()      # 현재 상태를 화면에 반영 (처음엔 "0" 표시)
-
-    # ==================================================================
-    # UI 구성
-    # ==================================================================
+    '''
+     UI 구성 (QMainWindow 중앙에 QWidget 을 넣고, 그 QWidget 에 QVBoxLayout 을 적용하여 수식창, 출력창, 버튼 그리드를 수직으로 배치한다.)
+    '''
     def _build_ui(self):
         """
         QMainWindow 는 중앙에 하나의 위젯만 놓을 수 있는데, 
@@ -171,7 +156,7 @@ class Calculator(QMainWindow):
         self.expr_label.setFixedHeight(28)
         root.addWidget(self.expr_label)
 
-        # ---- 출력창 (아래쪽, 큰 흰색 글자) ----
+        # 출력창 (아래쪽, 큰 흰색 글자)
         self.display = QLabel("0")
         self.display.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter # 수평 기준, 오른쪽 정렬 / 수직 기준, 가운데 정렬
@@ -181,11 +166,11 @@ class Calculator(QMainWindow):
         self.display.setFixedHeight(100)
         root.addWidget(self.display)
 
-        # ---- 버튼 그리드 (5행 × 4열) ----
+        # 버튼 그리드 (5행 × 4열)
         grid = QGridLayout()
         grid.setSpacing(8)
 
-        # 버튼 하나를 그리드에 추가하는 내부 헬퍼 함수.
+        # 버튼 하나를 그리드에 추가하는 내부 헬퍼 함수
         # colspan=2 를 주면 '0' 버튼처럼 가로로 두 칸을 차지한다.(0번 버튼 처리를 위해)
         def add_btn(label, row, col, style, handler, colspan=1):
             btn = QPushButton(label) # 버튼 생성 및 표기될 이름 설정
@@ -212,7 +197,8 @@ class Calculator(QMainWindow):
 
         # 행 1: 7, 8, 9, ×
         for i, d in enumerate(["7", "8", "9"]):
-            # 람다 안의 x=d 는 "클로저가 늦게 평가되는" 함정을 피하기 위한 기본값 바인딩.
+            # 람다식을 사용하지 않으면 반복문이 끝난 후, d의 값이 9로 고정되어
+            # 7, 8, 9 버튼 모두 9가 할당되는 버그 생김
             add_btn(d, 1, i, self.STYLE_DARK, lambda _=None, x=d: self.on_digit(x))
         add_btn("×", 1, 3, self.STYLE_ORANGE, lambda: self.on_operator("*"))
 
@@ -240,16 +226,10 @@ class Calculator(QMainWindow):
     # 폰트 / 포매팅 관련
     # ==================================================================
     def _set_display_font(self, size: int):
-        """출력창 폰트를 지정된 크기로 바꾼다 (Thin 굵기)."""
+        # 출력창 폰트를 지정된 크기로 바꾼다 (Thin 굵기)
         self.display.setFont(QFont("Helvetica", size, QFont.Weight.Thin))
 
     def _adjust_display_font(self, text: str):
-        """
-        [보완 1] 표시할 텍스트가 출력창 폭에 들어올 때까지 폰트를 한 단계씩 줄인다.
-
-        length 로 대충 구간을 나누는 방식은 콤마가 많이 들어간 숫자에서
-        잘리는 문제가 있어서, QFontMetrics 로 실제 픽셀 폭을 재서 비교한다.
-        """
         for size in self.DISPLAY_FONT_CANDIDATES:
             font = QFont("Helvetica", size, QFont.Weight.Thin)
             if QFontMetrics(font).horizontalAdvance(text) <= self.DISPLAY_TEXT_WIDTH:
@@ -422,14 +402,12 @@ class Calculator(QMainWindow):
     def on_operator(self, op: str):
         self._reset_if_error()
 
-        # 요구사항 14: 현재 숫자가 '.' 으로 끝나면 제거한 뒤 연산자 처리.
-        # 예) "5." + "+" → "5" 를 수식으로 옮기고 연산자 '+' 붙임.
+        # 마지막이 . 일 경우
         if self.current_input.endswith("."):
             self.current_input = self.current_input[:-1]
             self.has_decimal = False
 
-        # ① = 직후에 연산자를 누르면 "결과를 첫 피연산자로" 이어간다.
-        #    예: "5+3=8" 상태에서 "*" 누르면 수식창이 "8×" 가 됨.
+        # = 직후 나온 결과를 피연산자로
         if self.last_was_equals:
             self.expression = self.current_input + op
             self.current_input = ""
@@ -439,8 +417,8 @@ class Calculator(QMainWindow):
             self._refresh()
             return
 
-        # ② 요구사항 9: 수식창에 이미 수식이 있고, 출력창에도 숫자가 있을 때
-        #    → 먼저 계산한 결과를 출력창에 표시하고, 수식창엔 "결과 + 새 연산자".
+        # 수식창에 이미 수식이 있고, 출력창에도 숫자가 있을 때
+        # 먼저 계산한 결과를 출력창에 표시하고, 수식창엔 "결과 + 새 연산자".
         if self.expression and self.current_input and not self.last_was_operator:
             try:
                 full = self.expression + self.current_input
@@ -454,13 +432,13 @@ class Calculator(QMainWindow):
                 self._show_error()
             return
 
-        # ③ 요구사항 8: 방금도 연산자였는데 또 연산자 → 마지막 연산자만 교체.
+        # 방금도 연산자였는데 또 연산자 → 마지막 연산자만 교체.
         if self.last_was_operator and self.expression and self.expression[-1] in "+-*/":
             self.expression = self.expression[:-1] + op
             self._refresh()
             return
 
-        # ④ 요구사항 7: 숫자 입력 없이 연산자 → "0+연산자" 로 시작.
+        # 숫자 입력 없이 연산자 → "0+연산자" 로 시작.
         if not self.current_input:
             self.expression = "0" + op
             self.last_was_operator = True
@@ -749,12 +727,8 @@ class Calculator(QMainWindow):
 # ----------------------------------------------------------------------
 # 엔트리 포인트
 # ----------------------------------------------------------------------
-def main():
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     calc = Calculator()
     calc.show()
     sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    main()
