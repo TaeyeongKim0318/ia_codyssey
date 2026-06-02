@@ -1,6 +1,7 @@
 """저장된 CSV에서 키워드를 검색하는 서비스."""
 
 import csv
+from pathlib import Path
 
 from core.config import RECORDS_DIR
 from core.utils import Utils
@@ -9,20 +10,12 @@ from core.utils import Utils
 class KeywordSearcher:
     """저장된 CSV 파일에서 키워드를 검색해 결과를 출력한다."""
 
-    def __init__(self, records_dir=RECORDS_DIR):
-        """검색기를 초기화한다.
-
-        Args:
-            records_dir (str): CSV가 위치한 폴더 이름
-        """
+    def __init__(self, records_dir: str = RECORDS_DIR) -> None:
+        """검색기를 초기화한다."""
         self.records_dir = Utils.set_file_path(records_dir)
 
-    def search(self, keyword):
-        """모든 CSV에서 키워드를 검색해 매칭 행을 파일별로 출력한다.
-
-        Args:
-            keyword (str): 검색할 단어(부분 일치, 대소문자 무시)
-        """
+    def search(self, keyword: str) -> None:
+        """모든 CSV에서 키워드를 검색해 매칭 행을 파일별로 출력한다."""
         keyword = keyword.strip()
         if not keyword:
             Utils.print_log('검색', '검색어를 입력해 주세요.')
@@ -58,27 +51,15 @@ class KeywordSearcher:
                 print('    ' + time_str + '  ' + text)
         Utils.print_divider()
 
-    def _list_csv_files(self):
-        """records/ 안의 csv 파일 경로를 정렬해 반환한다.
-
-        Returns:
-            list[Path]: 정렬된 csv 파일 경로 목록
-        """
+    def _list_csv_files(self) -> list[Path]:
+        """records/ 안의 csv 파일 경로를 정렬해 반환한다."""
         return sorted(
             p for p in self.records_dir.iterdir()
             if p.suffix.lower() == '.csv'
         )
 
-    def _search_file(self, path, keyword):
-        """단일 CSV에서 키워드가 포함된 (시간, 텍스트) 행을 찾는다.
-
-        Args:
-            path (Path): 검색할 CSV 파일 경로
-            keyword (str): 검색어
-
-        Returns:
-            list[tuple[str, str]]: 매칭된 (시간, 텍스트) 행 목록
-        """
+    def _search_file(self, path: Path, keyword: str) -> list[tuple[str, str]]:
+        """단일 CSV에서 키워드가 포함된 (시간, 텍스트) 행 목록을 반환한다."""
         keyword_lower = keyword.lower()  # 대소문자 구분 없이 비교하기 위해 소문자로
         matches = []
         try:

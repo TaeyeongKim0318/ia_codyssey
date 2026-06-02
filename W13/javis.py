@@ -8,7 +8,7 @@ from services.recorder import Recorder
 from services.stt_processor import SttProcessor
 
 
-def main():
+def main() -> None:
     """의존성을 확인하고 서비스를 초기화한 뒤, 종료 전까지 메뉴 입력을 반복 처리한다."""
     Utils.print_divider('=')
     print('  Javis - 음성 녹음 / STT 프로그램')
