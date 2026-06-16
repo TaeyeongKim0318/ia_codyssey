@@ -1,0 +1,3 @@
+# 외부 라이브러리는 matplotlib 하나뿐이다(sqlite3 / csv / decimal 등은 파이썬 표준 내장).
+# 버전을 고정하지 않아 현재 파이썬(3.14)에 맞는 휠을 받도록 한다.
+matplotlib

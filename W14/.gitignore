@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Generated database
+*.db
+mars_weather_chart.png
+mars_weather_table.png
+
+# Windows
+Thumbs.db
+desktop.ini
